@@ -1,6 +1,8 @@
 from django.shortcuts import render,redirect
 import random
 from django.http import HttpResponse
+
+import settings
 from .models import Contact
 from .models import Feedback
 from .models import Donor
@@ -13,7 +15,7 @@ from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.mail import send_mail
-from .forms import DonorForm, EmailForm, OTPForm
+from .forms import DonorForm, EmailForm, FeedbackForm, OTPForm
 from .models import EmailOTP, User
 from django.utils import timezone
 
@@ -23,6 +25,51 @@ from .models import BloodRequest, Donor
 
 
 from django.shortcuts import render, redirect, get_object_or_404
+
+from django.shortcuts import get_object_or_404, redirect
+from django.core.mail import send_mail
+from django.contrib import messages
+from .models import Donor, BloodRequest
+
+def approve_donor_for_request(request, donor_id, request_id):
+    donor = get_object_or_404(Donor, id=donor_id)
+    blood_request = get_object_or_404(BloodRequest, id=request_id)
+
+    # Compose email content
+    subject = 'Blood Donation Request Notification'
+    message = f'''
+Dear {donor.first_name} {donor.last_name},
+
+You have been identified as a matching donor for a blood request.
+
+Requester Name: {blood_request.full_name}
+Blood Group: {blood_request.blood_group}
+City: {blood_request.city}
+Contact: {blood_request.contact_number}
+Address: {blood_request.address}
+
+If you're willing to donate, please get in touch with the requester as soon as possible.
+
+Thank you for being a life-saver!
+- Blood Donation Team
+'''
+    recipient_email = donor.email
+
+    # Send email (Make sure EMAIL settings are properly configured in settings.py)
+    try:
+       send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,  # Use from settings
+            recipient_list=[recipient_email],
+            fail_silently=False
+        )
+       messages.success(request, f'Notification email sent to {donor.first_name} {donor.last_name}.')
+    except Exception as e:
+        messages.error(request, f'Failed to send email: {str(e)}')
+
+    return redirect('admin_dashboard')  # Replace with your dashboard view name
+
 
 # Approve a blood request
 def approve_request(request, request_id):
@@ -236,7 +283,7 @@ def contact(request):
     if request.method == 'POST':
         name = request.POST.get('name')
         email = request.POST.get('email')
-        phone = request.POST.get('Phoneno')
+        phone = request.POST.get('phone')
         blood_need = request.POST.get('blood_need')  
         contact = Contact(name=name, email=email, phone=phone, blood_need=blood_need)
         contact.save()
@@ -247,43 +294,20 @@ def thanks(request):
     return render(request, 'thanks.html')
 
 
-def feedback(request):
-    if request.method == 'POST':
-        # Retrieve data from the form
-        first_name = request.POST.get('first_name')
-        last_name = request.POST.get('last_name')
-        email = request.POST.get('email')
-        time_to_contact = request.POST.get('time_to_contact')
-        first_time_donator = request.POST.get('first_time_donator')
-        where_heard_about_us = request.POST.get('where_heard_about_us')
-        inspiration_to_donate = request.POST.get('inspiration_to_donate')
-        process_easy = request.POST.get('process_easy')
-        donate_next_year = request.POST.get('donate_next_year')
-        recommend_to_others = request.POST.get('recommend_to_others')
-        improve_experience = request.POST.get('improve_experience')
-        improve_utilization = request.POST.get('improve_utilization')
-        age_range = request.POST.get('age_range')
 
-        # Create a new Feedback object and save it to the database
-        feedback = Feedback(
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            time_to_contact=time_to_contact,
-            first_time_donator=first_time_donator,
-            where_heard_about_us=where_heard_about_us,
-            inspiration_to_donate=inspiration_to_donate,
-            process_easy=process_easy,
-            donate_next_year=donate_next_year,
-            recommend_to_others=recommend_to_others,
-            improve_experience=improve_experience,
-            improve_utilization=improve_utilization,
-            age_range=age_range
-        )
-        feedback.save()
+def feedback_view(request):
+    if request.method == "POST":
+        form = FeedbackForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('thanks_feedback')  # Redirect to a thank you page or feedback listing page.
+    else:
+        form = FeedbackForm()
 
-        return render(request,'thanks_feedback.html')
-    return render(request, 'feedback.html')
+    return render(request, 'feedback.html', {'form': form})
+
+def thank_you(request):
+    return render(request, 'thans_feedback.html')
 
 
 
@@ -292,3 +316,9 @@ def feedback(request):
 
 def thanks_feedback(request):
     return render(request, 'thanks_feedback.html')
+
+
+
+def contact_list(request):
+    contacts = Contact.objects.all().order_by('-submitted_at')
+    return render(request, 'contact_list.html', {'contacts': contacts})

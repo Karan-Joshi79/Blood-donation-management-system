@@ -19,13 +19,15 @@ urlpatterns = [
     path('',views.index, name='index'),
     path('registration/',views.registed,name='registration') ,
     path('motive/', views.motive, name='motive'),
+    path('approve-donor/<int:donor_id>/<int:request_id>/', views.approve_donor_for_request, name='approve_donor_for_request'),
+
     path('index/', views.index, name='index'),
     path('requestforblood/', views.request_for_blood, name='request_for_blood'),
     path('registerasdonor/', views.register_as_donor, name='register_as_donor'),
     path('contactus/', views.contact, name='contactus'),
-    path('feedback/', views.feedback, name='feedback'),
+    
     path('thanks/', views.thanks, name='thanks'),  
-    path('feedback/', views.feedback, name='feedback'), 
+    path('feedback/', views.feedback_view, name='feedback'), 
     path('thanks_feedback/', views.thanks_feedback, name='thanks_feedback'),
     path('request_success/', views.success, name='success')
 ]
